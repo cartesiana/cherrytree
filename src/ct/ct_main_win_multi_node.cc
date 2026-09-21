@@ -263,11 +263,13 @@ void CtMainWin::_show_multi_node_editor(const std::vector<CtTreeIter>& tree_iter
 #endif
         }
         else {
+            const bool is_last_section = i + 1 == page_end;
 #if GTKMM_MAJOR_VERSION >= 4
             _multiNodeBox.append(section->textView->mm());
             section->textView->mm().set_hexpand(true);
+            section->textView->mm().set_vexpand(is_last_section);
 #else
-            _multiNodeBox.pack_start(section->textView->mm(), false, false);
+            _multiNodeBox.pack_start(section->textView->mm(),is_last_section,is_last_section);
 #endif
             _update_multi_node_section_height(*section->textView);
         }
