@@ -44,6 +44,7 @@
 #include "ct_image.h"
 #include "ct_export2pdf.h"
 #include "ct_state_machine.h"
+#include <vector>
 
 struct CtStatusBar
 {
@@ -147,7 +148,10 @@ public:
     // The tree cursor node targeted by structural tree actions.
     CtTreeIter                        tree_cursor_iter();
     // Selected data holders in tree order, with shared nodes returned once.
-    std::vector<CtTreeIter>           selected_tree_iters();
+    std::vector<CtTreeIter>           selected_tree_iters(bool unique_data_holders = true);
+    std::vector<CtTreeIter>           selected_tree_root_iters();
+    std::vector<gint64> selected_tree_node_ids();
+    void restore_tree_selection(const std::vector<gint64>& node_ids, gint64 cursor_id);
     CtTreeStore&                      get_tree_store()  { return *_uCtTreestore; }
     CtTreeView&                       get_tree_view()   { return *_uCtTreeview; }
     CtTextView&                       get_text_view()   { return *_pActiveTextview; }
@@ -247,7 +251,10 @@ public:
 
     void show_hide_win_header(bool visible) { _ctWinHeader.headerBox.property_visible() = visible; }
 
-    void resetPrevTreeIter()                { _prevTreeIter = CtTreeIter(); }
+    void resetPrevTreeIter() {
+        _prevTreeIter = CtTreeIter();
+        _activeTreeIter = CtTreeIter(); // Structural edits may erase the active row too.
+    }
 
 #if GTKMM_MAJOR_VERSION < 4
     void save_position()                    { get_position(_savedXpos, _savedYpos); }
@@ -289,6 +296,7 @@ private:
     void _connect_text_view_events(CtTextView& text_view);
     void _update_multi_node_section_height(CtTextView& text_view);
 #if GTKMM_MAJOR_VERSION < 4
+    bool _on_treeview_button_press_event(GdkEventButton* event);
     bool _on_treeview_button_release_event(GdkEventButton* event);
     void _on_treeview_event_after(GdkEvent* event); // pygtk: on_event_after_tree
 #endif
@@ -449,6 +457,9 @@ private:
     bool                _tree_just_auto_expanded{false};
     bool                _treeRestoreInProgress{false};
     std::unordered_set<gint64> _treeExpandedNodeIds;
+    std::vector<gint64> _treeRightClickSelectionIds;
+    std::vector<gint64> _treeDragSelectionIds;
+    gint64 _treeDragSourceNodeId{-1};
     std::unordered_map<gint64, int> _nodesCursorPos;
     std::unordered_map<gint64, int> _nodesVScrollPos;
 
