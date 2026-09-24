@@ -25,6 +25,19 @@
 #include "ct_actions.h"
 #include "ct_list.h"
 
+CtTreeIter CtMainWin::tree_cursor_iter()
+{
+    if (not _uCtTreeview or not _uCtTreestore) return CtTreeIter{};
+    Gtk::TreeModel::Path path;
+    Gtk::TreeViewColumn* pColumn{nullptr};
+    _uCtTreeview->get_cursor(path, pColumn);
+    if (path.empty()) return CtTreeIter{};
+    if (auto iter = _uCtTreeview->get_model()->get_iter(path)) {
+        return _uCtTreestore->to_ct_tree_iter(iter);
+    }
+    return CtTreeIter{};
+}
+
 void CtMainWin::_on_treeview_cursor_changed()
 {
     CtTreeIter treeIter = curr_tree_iter();

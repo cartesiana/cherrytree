@@ -141,6 +141,7 @@ public:
     CtTreeIter                        curr_tree_iter()  {
         return _uCtTreestore->to_ct_tree_iter(_uCtTreeview->get_selection()->get_selected());
     }
+    CtTreeIter                        tree_cursor_iter(); /*The tree cursor is the target of structural node actions.*/
     CtTreeStore&                      get_tree_store()  { return *_uCtTreestore; }
     CtTreeView&                       get_tree_view()   { return *_uCtTreeview; }
     CtTextView&                       get_text_view()   { return _ctTextview; }
