@@ -124,6 +124,7 @@ bool CtActions::_is_there_anch_widg_selection_or_error(const char anch_widg_id)
 // Put Selection Upon the anchored widget
 void CtActions::object_set_selection(CtAnchoredWidget* widget)
 {
+    _pCtMainWin->activate_editor_for_widget(widget);
     const bool isImage = dynamic_cast<CtImage*>(widget) != nullptr;
     Glib::RefPtr<Gtk::TextChildAnchor> anchor = widget->getTextChildAnchor();
     if (_pCtConfig->objectNoSelOnClick or not isImage) {
@@ -502,15 +503,8 @@ void CtActions::node_edit()
         }
     }
 
-    _pCtMainWin->get_text_view().mm().set_editable(not newData.isReadOnly);
-    _pCtMainWin->update_selected_node_statusbar_info();
     ct_treestore.update_node_aux_icon(ct_tree_iter);
-    _pCtMainWin->window_header_update();
-    _pCtMainWin->window_header_update_lock_icon(newData.isReadOnly);
-    _pCtMainWin->window_header_update_ghost_icon(newData.excludeMeFromSearch or newData.excludeChildrenFromSearch);
     _pCtMainWin->update_window_save_needed(CtSaveNeededUpdType::npro);
-    _pCtMainWin->get_text_view().mm().grab_focus();
-
     // if this node belongs to a shared group, we need to update the other nodes of the group
     CtSharedNodesMap shared_nodes_map;
     if (ct_treestore.populate_shared_nodes_map(shared_nodes_map) > 0u) {
@@ -537,7 +531,17 @@ void CtActions::node_edit()
             }
         }
     }
+    if (_pCtMainWin->curr_tree_iter().get_node_id() == ct_tree_iter.get_node_id()) {
+        _pCtMainWin->get_text_view().mm().set_editable(not newData.isReadOnly);
+        _pCtMainWin->update_selected_node_statusbar_info();
+        _pCtMainWin->window_header_update();
+        _pCtMainWin->window_header_update_lock_icon(newData.isReadOnly);
+        _pCtMainWin->window_header_update_ghost_icon(newData.excludeMeFromSearch or newData.excludeChildrenFromSearch);
+        _pCtMainWin->get_text_view().mm().grab_focus();
+    }
+    _pCtMainWin->refresh_multi_node_editor();
 }
+
 
 // Change the Selected Node's Children Syntax Highlighting to the Parent's Syntax Highlighting
 void CtActions::node_inherit_syntax()
@@ -731,14 +735,9 @@ void CtActions::node_toggle_read_only()
     CtTreeIter currTreeIter = _tree_cursor_iter();
     const bool node_is_ro = not currTreeIter.get_node_read_only();
     currTreeIter.set_node_read_only(node_is_ro);
-    _pCtMainWin->get_text_view().mm().set_editable(not node_is_ro);
-    _pCtMainWin->window_header_update_lock_icon(node_is_ro);
-    _pCtMainWin->update_selected_node_statusbar_info();
     CtTreeStore& ct_treestore = _pCtMainWin->get_tree_store();
     ct_treestore.update_node_aux_icon(currTreeIter);
     _pCtMainWin->update_window_save_needed(CtSaveNeededUpdType::npro);
-    _pCtMainWin->get_text_view().mm().grab_focus();
-
     // if this node belongs to a shared group, we need to update all the nodes of the group
     CtSharedNodesMap shared_nodes_map;
     if (ct_treestore.populate_shared_nodes_map(shared_nodes_map) > 0u) {
@@ -762,6 +761,13 @@ void CtActions::node_toggle_read_only()
             }
         }
     }
+    if (_pCtMainWin->curr_tree_iter().get_node_id() == currTreeIter.get_node_id()) {
+        _pCtMainWin->get_text_view().mm().set_editable(not node_is_ro);
+        _pCtMainWin->window_header_update_lock_icon(node_is_ro);
+        _pCtMainWin->update_selected_node_statusbar_info();
+        _pCtMainWin->get_text_view().mm().grab_focus();
+    }
+    _pCtMainWin->refresh_multi_node_editor();
 }
 
 void CtActions::_node_date(const bool from_sel_not_root, const int days_offset)
@@ -1038,13 +1044,16 @@ void CtActions::bookmark_curr_node()
     auto on_scope_exit = scope_guard([this](void*) { _in_action = false; });
 
     if (not _is_there_selected_node_or_error()) return;
-    gint64 node_id = _tree_cursor_iter().get_node_id();
+    CtTreeIter tree_iter = _tree_cursor_iter();
+    gint64 node_id = tree_iter.get_node_id();
 
     if (_pCtMainWin->get_tree_store().bookmarks_add(node_id)) {
         _pCtMainWin->menu_set_bookmark_menu_items();
-        _pCtMainWin->get_tree_store().update_node_aux_icon(_tree_cursor_iter());
-        _pCtMainWin->window_header_update_bookmark_icon(true);
-        _pCtMainWin->menu_update_bookmark_menu_item(true);
+        _pCtMainWin->get_tree_store().update_node_aux_icon(tree_iter);
+        if (_pCtMainWin->curr_tree_iter().get_node_id() == node_id) {
+            _pCtMainWin->window_header_update_bookmark_icon(true);
+            _pCtMainWin->menu_update_bookmark_menu_item(true);
+        }
         _pCtMainWin->update_window_save_needed(CtSaveNeededUpdType::book);
     }
 }
@@ -1056,13 +1065,16 @@ void CtActions::bookmark_curr_node_remove()
     auto on_scope_exit = scope_guard([this](void*) { _in_action = false; });
 
     if (not _is_there_selected_node_or_error()) return;
-    gint64 node_id = _tree_cursor_iter().get_node_id();
+    CtTreeIter tree_iter = _tree_cursor_iter();
+    gint64 node_id = tree_iter.get_node_id();
 
     if (_pCtMainWin->get_tree_store().bookmarks_remove(node_id)) {
         _pCtMainWin->menu_set_bookmark_menu_items();
-        _pCtMainWin->get_tree_store().update_node_aux_icon(_tree_cursor_iter());
-        _pCtMainWin->window_header_update_bookmark_icon(false);
-        _pCtMainWin->menu_update_bookmark_menu_item(false);
+        _pCtMainWin->get_tree_store().update_node_aux_icon(tree_iter);
+        if (_pCtMainWin->curr_tree_iter().get_node_id() == node_id) {
+            _pCtMainWin->window_header_update_bookmark_icon(false);
+            _pCtMainWin->menu_update_bookmark_menu_item(false);
+        }
         _pCtMainWin->update_window_save_needed(CtSaveNeededUpdType::book);
     }
 }
